@@ -1,0 +1,19 @@
+resource "azurerm_log_analytics_workspace" "core" {
+  name                = "log-${local.name}"
+  resource_group_name = azurerm_resource_group.core.name
+  location            = azurerm_resource_group.core.location
+  sku                 = "PerGB2018"
+  retention_in_days   = 30
+  daily_quota_gb      = var.log_daily_quota_gb
+  tags                = local.tags
+}
+
+resource "azurerm_application_insights" "core" {
+  name                 = "appi-${local.name}"
+  resource_group_name  = azurerm_resource_group.core.name
+  location             = azurerm_resource_group.core.location
+  workspace_id         = azurerm_log_analytics_workspace.core.id
+  application_type     = "web"
+  daily_data_cap_in_gb = var.log_daily_quota_gb
+  tags                 = local.tags
+}
