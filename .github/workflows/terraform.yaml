@@ -122,6 +122,14 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
       - run: terraform init -input=false -backend-config=env/${{ matrix.env }}.backend.hcl
       - run: terraform plan -input=false -var-file=env/${{ matrix.env }}.tfvars -out=tfplan
       - run: terraform apply -input=false tfplan
+      - name: smoke test
+        run: |
+          url=$(terraform output -raw gateway_url)
+          for path in /healthz /v1/questions; do
+            echo "GET $url$path"
+            curl -fsS --retry 40 --retry-delay 10 --retry-all-errors --max-time 30 "$url$path" > /dev/null
+          done
