@@ -85,10 +85,13 @@ The apply recreates the lock. Logins are unaffected by the lock; it only blocks 
 cd stacks/core
 terraform init -backend-config=env/dev.backend.hcl
 terraform plan -var-file=env/dev.tfvars
-terraform test
+terraform test -filter=tests/core.tftest.hcl
 ```
 
+Always pass `-filter`. A bare `terraform test` also runs `tests/deploy.tftest.hcl`, which deploys a real `test` environment to Azure. In PowerShell the filter path uses a backslash: `terraform test '-filter=tests\core.tftest.hcl'`.
+
 - Pull requests: fmt, validate, `terraform test` with mock providers, and a dev plan in the job summary.
+- Pull requests that change `stacks/` or `modules/` also run the `deploy-test` workflow. It runs `tests/deploy.tftest.hcl`: a real apply of a throwaway `test` environment (`rg-malus-test`, `10.43.0.0/16`), then `/healthz` and `/v1/questions` through the gateway must return 200, then everything is destroyed. It takes about 20–30 minutes and a few cents. Only one runs at a time, and leftovers from an interrupted run are deleted before the next one starts.
 - Merge to `main`: applies dev, then prod; prod waits for approval.
 - New images: CI runs `az containerapp update --image ...`; Terraform ignores image and traffic-weight drift so the two don't fight. After a content rollout, run the migration job.
 

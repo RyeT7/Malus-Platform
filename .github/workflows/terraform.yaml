@@ -34,7 +34,7 @@ jobs:
             terraform -chdir="$dir" validate
           done
           terraform -chdir=modules/container_app test
-          terraform -chdir=stacks/core test
+          terraform -chdir=stacks/core test -filter=tests/core.tftest.hcl
 
   plan:
     if: github.event_name == 'pull_request'
