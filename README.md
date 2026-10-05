@@ -64,7 +64,7 @@ Dev is destroyed every night by `nightly-destroy.yaml`, so only prod's private e
 2. The state storage account name is derived from the subscription ID, so `stacks/core/env/*.backend.hcl` already contains it (`stmalustfd01f08`). Check it matches the `state_storage_account` output.
 3. Make the five `ghcr.io/ryet7/malus-be-<service>` packages public on GitHub. Images are pulled from `<image_repository>-<service>:<tag>` (for example `ghcr.io/ryet7/malus-be-gateway:sha-<commit>`), which is what the Malus-BE `publish-image` job pushes; it must have run on `main` at least once before the first core apply.
 4. Set `auth_audience` in `stacks/core/env/*.tfvars` to the API's app ID URI or client ID from Entra. The school tenant does not allow creating app registrations, so this needs a tenant where you can register an app (see `auth_tenant_id`).
-5. In each of the three GitHub repos, add the repository variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` from the bootstrap output, and create the environments `dev` and `prod`. Put required reviewers on `prod` only; reviewers on `dev` would block the nightly destroy.
+5. In each of the three GitHub repos, add the repository secrets (Settings → Secrets and variables → Actions → Secrets) `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` from the bootstrap output, so they are masked in workflow logs, and create the environments `dev` and `prod`. Put required reviewers on `prod` only; reviewers on `dev` would block the nightly destroy.
 
 ### Changing the GitHub trust rules
 
