@@ -1,0 +1,79 @@
+name: k8s
+
+on:
+  pull_request:
+    paths: ["deploy/**", ".github/workflows/k8s.yml"]
+  push:
+    branches: [main]
+    paths: ["deploy/**", ".github/workflows/k8s.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CHART: deploy/charts/malus
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: install kubeconform
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
+          sudo mv kubeconform /usr/local/bin/
+      - run: helm lint "$CHART"
+      - run: helm lint "$CHART" -f deploy/kind/values.yaml
+      - name: kubeconform
+        run: |
+          helm template malus "$CHART" | kubeconform -strict -summary -ignore-missing-schemas
+          helm template malus "$CHART" -f deploy/kind/values.yaml | kubeconform -strict -summary -ignore-missing-schemas
+
+  kind:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/Malus-BE
+          path: be
+          token: ${{ secrets.MALUS_BE_READ_TOKEN || github.token }}
+      - name: build images
+        run: |
+          for svc in gateway content interaction realtime worker; do
+            docker build --build-arg SERVICE=$svc -t malus-be/$svc:local be
+          done
+      - uses: helm/kind-action@v1
+        with:
+          cluster_name: malus
+          config: deploy/kind/kind-config.yaml
+      - name: load images
+        run: |
+          for svc in gateway content interaction realtime worker; do
+            kind load docker-image malus-be/$svc:local --name malus
+          done
+      - name: dependencies
+        run: |
+          kubectl apply -f deploy/kind/dependencies.yaml
+          kubectl -n malus-deps rollout status deploy/sqlserver --timeout=5m
+          kubectl -n malus-deps rollout status deploy/cosmos --timeout=5m
+          kubectl -n malus-deps wait --for=condition=complete job/sqlserver-init --timeout=5m
+      - name: install chart
+        run: |
+          helm upgrade --install malus "$CHART" -n malus --create-namespace \
+            -f deploy/kind/values.yaml --wait --timeout 5m
+      - name: smoke test
+        run: |
+          curl -fsS http://localhost:8080/healthz
+          curl -fsS http://localhost:8080/v1/sections
+          curl -fsS http://localhost:8080/v1/questions
+      - name: dump state
+        if: failure()
+        run: |
+          kubectl get all,networkpolicy -A
+          kubectl -n malus describe pods
+          kubectl -n malus logs -l app.kubernetes.io/part-of=malus --all-containers --tail=100
+          kubectl -n malus-deps logs deploy/cosmos --tail=100
