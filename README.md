@@ -92,6 +92,7 @@ Always pass `-filter`. A bare `terraform test` also runs `tests/deploy.tftest.hc
 
 - Pull requests: fmt, validate, `terraform test` with mock providers, and a dev plan in the job summary.
 - Pull requests that change `stacks/` or `modules/` also run the `deploy-test` workflow. It runs `tests/deploy.tftest.hcl`: a real apply of a throwaway `test` environment (`rg-malus-test`, `10.43.0.0/16`), then `/healthz` and `/v1/questions` through the gateway must return 200, then everything is destroyed. It takes about 20–30 minutes and a few cents. Only one runs at a time, and leftovers from an interrupted run are deleted before the next one starts.
+- Pull requests also plan against prod's real state (`prod-safety` job, read-only, no lock). The job fails if the change would delete or replace a stateful resource: the SQL server or database, the Cosmos DB account, database or container, the storage account or its containers, or Key Vault. A fresh deploy succeeding doesn't prove that updating prod is safe; renaming the SQL server, for example, would recreate it and lose its data.
 - Merge to `main`: applies dev, then prod; prod waits for approval.
 - New images: CI runs `az containerapp update --image ...`; Terraform ignores image and traffic-weight drift so the two don't fight. After a content rollout, run the migration job.
 

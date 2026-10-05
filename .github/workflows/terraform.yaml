@@ -60,6 +60,50 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+  prod-safety:
+    if: github.event_name == 'pull_request'
+    needs: check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: stacks/core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+      - run: terraform init -input=false -backend-config=env/prod.backend.hcl
+      - run: terraform plan -input=false -lock=false -no-color -var-file=env/prod.tfvars -out=tfplan
+      - name: block deletion or replacement of stateful prod resources
+        run: |
+          terraform show -json tfplan > plan.json
+          blocked=$(jq -r '
+            ["azurerm_mssql_server", "azapi_resource", "azurerm_cosmosdb_account",
+             "azurerm_cosmosdb_sql_database", "azurerm_cosmosdb_sql_container",
+             "azurerm_storage_account", "azurerm_storage_container", "azurerm_key_vault"] as $protected
+            | .resource_changes[]?
+            | select((.type as $t | $protected | index($t)) and (.change.actions | index("delete")))
+            | "\(.address) (\(.change.actions | join(" then ")))"
+          ' plan.json)
+          {
+            echo '### prod plan'
+            echo '```'
+            terraform show -no-color tfplan | tail -c 60000
+            echo '```'
+            if [ -n "$blocked" ]; then
+              echo '### Blocked: this change would delete or replace stateful prod resources'
+              echo '```'
+              echo "$blocked"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$blocked" ]; then
+            echo "::error::Change would delete or replace stateful prod resources:"
+            echo "$blocked"
+            exit 1
+          fi
+
   apply:
     if: github.event_name != 'pull_request'
     needs: check
