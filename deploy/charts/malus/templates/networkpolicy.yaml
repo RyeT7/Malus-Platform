@@ -1,0 +1,61 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  labels:
+    app.kubernetes.io/part-of: malus
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: malus
+      ports:
+        - { protocol: TCP, port: 8080 }
+    - ports:
+        - { protocol: TCP, port: 443 }
+        - { protocol: TCP, port: 1433 }
+        - { protocol: TCP, port: 5671 }
+        {{- range .Values.networkPolicy.extraEgressPorts }}
+        - { protocol: TCP, port: {{ . | int }} }
+        {{- end }}
+{{- range $name, $svc := .Values.services }}
+{{- if and $svc.enabled $svc.service }}
+{{- $cfg := include "malus.config" (dict "root" $ "svc" $svc) | fromYaml }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}-ingress
+  labels:
+    {{- include "malus.labels" (dict "root" $ "name" $name) | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "malus.selector" (dict "name" $name) | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - ports:
+        - { protocol: TCP, port: {{ $cfg.port | int }} }
+      {{- if ne $svc.allowIngressFrom "anywhere" }}
+      from:
+        - podSelector:
+            matchLabels:
+              {{- include "malus.selector" (dict "name" $svc.allowIngressFrom) | nindent 14 }}
+      {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

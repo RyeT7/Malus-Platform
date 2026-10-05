@@ -1,0 +1,25 @@
+{{- range $name, $svc := .Values.services }}
+{{- if and $svc.enabled $svc.service }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "malus.labels" (dict "root" $ "name" $name) | nindent 4 }}
+spec:
+  type: {{ $svc.service.type }}
+  {{- if and (ne $svc.service.type "ClusterIP") $svc.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ $svc.service.externalTrafficPolicy }}
+  {{- end }}
+  selector:
+    {{- include "malus.selector" (dict "name" $name) | nindent 4 }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      {{- if $svc.service.nodePort }}
+      nodePort: {{ $svc.service.nodePort | int }}
+      {{- end }}
+{{- end }}
+{{- end }}
