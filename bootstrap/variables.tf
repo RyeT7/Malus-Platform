@@ -8,10 +8,14 @@ variable "github_owner" {
   type        = string
 }
 
+variable "github_owner_id" {
+  description = "Numeric ID of the GitHub owner. Repositories created after 15 July 2026 put it in the OIDC subject (repo:OWNER@OWNER-ID/REPO@REPO-ID:...)."
+  type        = number
+}
+
 variable "github_repositories" {
-  description = "Repositories that may federate into the CI identity."
-  type        = list(string)
-  default     = ["Malus-Platform", "Malus-BE", "Malus-FE"]
+  description = "Repositories that may federate into the CI identity, mapped to their numeric repository IDs for the immutable OIDC subject format."
+  type        = map(number)
 }
 
 variable "environments" {

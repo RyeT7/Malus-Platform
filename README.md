@@ -101,7 +101,7 @@ Dev only exists after you run `deploy-dev.yaml`, and is destroyed every night by
 
 ### Changing the GitHub trust rules
 
-`id-malus-github` carries a `ReadOnly` lock, because its Contributor role would otherwise let a compromised workflow add a federated credential for another repository and keep access. Only an Owner can remove the lock. To add a repository or environment:
+`id-malus-github` carries a `ReadOnly` lock, because its Contributor role would otherwise let a compromised workflow add a federated credential for another repository and keep access. Only an Owner can remove the lock. The repositories were created after 15 July 2026, so GitHub's OIDC subjects use the immutable format `repo:OWNER@OWNER-ID/REPO@REPO-ID:...`; the owner ID and each repository ID are in `bootstrap/env/shared.tfvars` (an ID is on the repository page, or in the subject quoted by a failed `AADSTS700213` login). To add a repository or environment:
 
 ```sh
 az lock delete -n malus-github-identity-readonly -g rg-malus-shared --resource id-malus-github --resource-type Microsoft.ManagedIdentity/userAssignedIdentities
