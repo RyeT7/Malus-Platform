@@ -1,5 +1,6 @@
 env              = "prod"
 location         = "eastasia"
+cosmos_location  = "malaysiawest"
 address_space    = "10.42.0.0/16"
 image_repository = "ghcr.io/ryet7/malus-be"
 auth_audience    = "api://malus-api"

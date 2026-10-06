@@ -2,6 +2,7 @@ resource "azurerm_container_app_environment" "core" {
   name                               = "cae-${local.name}"
   resource_group_name                = azurerm_resource_group.core.name
   location                           = azurerm_resource_group.core.location
+  logs_destination                   = "log-analytics"
   log_analytics_workspace_id         = azurerm_log_analytics_workspace.core.id
   infrastructure_subnet_id           = azurerm_subnet.apps.id
   infrastructure_resource_group_name = "rg-${local.name}-cae-infra"

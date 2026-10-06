@@ -3,8 +3,8 @@ variable "env" {
   type        = string
 
   validation {
-    condition     = contains(["dev", "prod"], var.env)
-    error_message = "env must be dev or prod."
+    condition     = contains(["dev", "prod", "test"], var.env)
+    error_message = "env must be dev, prod or test."
   }
 }
 
@@ -71,6 +71,12 @@ variable "log_daily_quota_gb" {
 variable "sql_auto_pause_minutes" {
   type    = number
   default = 60
+}
+
+variable "cosmos_location" {
+  description = "Region for the Cosmos DB account when the primary region has no Cosmos DB capacity for this subscription. Must also be an allowed region."
+  type        = string
+  default     = null
 }
 
 variable "cosmos_free_tier" {

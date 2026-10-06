@@ -24,7 +24,7 @@ provider "azurerm" {
     "Microsoft.Consumption",
     "Microsoft.ContainerService",
     "Microsoft.DocumentDB",
-    "Microsoft.Insights",
+    "microsoft.insights",
     "Microsoft.KeyVault",
     "Microsoft.ManagedIdentity",
     "Microsoft.Network",

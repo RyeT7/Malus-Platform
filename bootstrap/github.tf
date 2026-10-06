@@ -1,11 +1,11 @@
 locals {
   federated_subjects = merge(
     {
-      for pair in setproduct(var.github_repositories, var.environments) :
-      "${lower(pair[0])}-${pair[1]}" => "repo:${var.github_owner}/${pair[0]}:environment:${pair[1]}"
+      for pair in setproduct(keys(var.github_repositories), var.environments) :
+      "${lower(pair[0])}-${pair[1]}" => "repo:${var.github_owner}@${var.github_owner_id}/${pair[0]}@${var.github_repositories[pair[0]]}:environment:${pair[1]}"
     },
     {
-      "malus-platform-pr" = "repo:${var.github_owner}/Malus-Platform:pull_request"
+      "malus-platform-pr" = "repo:${var.github_owner}@${var.github_owner_id}/Malus-Platform@${var.github_repositories["Malus-Platform"]}:pull_request"
     },
   )
 

@@ -1,0 +1,117 @@
+name: ci
+
+on:
+  pull_request:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TF_IN_AUTOMATION: "true"
+  ARM_USE_OIDC: "true"
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/terraform-check
+
+  prod-safety:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/terraform-init
+        with:
+          backend-config: env/prod.backend.hcl
+      - uses: ./.github/actions/terraform-plan
+        with:
+          env: prod
+          lock: "false"
+      - name: block deletion or replacement of stateful prod resources
+        working-directory: stacks/core
+        run: |
+          terraform show -json tfplan > plan.json
+          blocked=$(jq -r '
+            ["azurerm_mssql_server", "azapi_resource", "azurerm_cosmosdb_account",
+             "azurerm_cosmosdb_sql_database", "azurerm_cosmosdb_sql_container",
+             "azurerm_storage_account", "azurerm_storage_container", "azurerm_key_vault"] as $protected
+            | .resource_changes[]?
+            | select((.type as $t | $protected | index($t)) and (.change.actions | index("delete")))
+            | "\(.address) (\(.change.actions | join(" then ")))"
+          ' plan.json)
+          if [ -n "$blocked" ]; then
+            {
+              echo '### Blocked: this change would delete or replace stateful prod resources'
+              echo '```'
+              echo "$blocked"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Change would delete or replace stateful prod resources:"
+            echo "$blocked"
+            exit 1
+          fi
+
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      infra: ${{ steps.diff.outputs.infra }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if git diff --name-only "$BASE_SHA" "$HEAD_SHA" | grep -qE '^(stacks/|modules/|\.github/actions/|\.github/workflows/ci\.yaml$)'; then
+            echo "infra=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "infra=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy-test:
+    needs: [check, changes]
+    if: needs.changes.outputs.infra == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment: dev
+    concurrency:
+      group: deploy-test
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/remove-test-env
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - uses: ./.github/actions/terraform-init
+      - name: deployment test
+        working-directory: stacks/core
+        run: |
+          set +e
+          terraform test -no-color -filter=tests/deploy.tftest.hcl 2>&1 | tee test.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -eq 0 ]; then
+            exit 0
+          fi
+          summary=$(grep -E '^(Success|Failure)! [0-9]+ passed, [0-9]+ failed' test.log | tail -1)
+          if echo "$summary" | grep -qE '^Failure! [1-9][0-9]* passed, 0 failed\.$' && grep -q 'Terraform left the following resources in state' test.log; then
+            echo "::warning::Every test run passed; only Terraform's teardown failed (azurerm 5.8 Container Apps delete polling bug, hashicorp/terraform-provider-azurerm#33433, fixed in 5.9.0). The next step deletes the resource group and fails the job if that fails."
+            exit 0
+          fi
+          exit "$status"
+      - if: always()
+        uses: ./.github/actions/remove-test-env
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}

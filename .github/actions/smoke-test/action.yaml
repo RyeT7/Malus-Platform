@@ -1,0 +1,20 @@
+name: smoke-test
+description: Call the gateway's health and public routes until they answer 200, allowing for cold starts
+
+inputs:
+  url:
+    description: Gateway base URL, e.g. the gateway_url output of stacks/core
+    required: true
+
+runs:
+  using: composite
+
+  steps:
+    - shell: bash
+      env:
+        GATEWAY_URL: ${{ inputs.url }}
+      run: |
+        for path in /healthz /v1/questions; do
+          echo "GET $GATEWAY_URL$path"
+          curl -fsS --retry 40 --retry-delay 10 --retry-all-errors --max-time 30 "$GATEWAY_URL$path" > /dev/null
+        done

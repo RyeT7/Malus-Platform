@@ -11,16 +11,16 @@ output "state_container" {
 }
 
 output "github_client_id" {
-  description = "Set as the AZURE_CLIENT_ID variable in each GitHub repository."
+  description = "Set as the AZURE_CLIENT_ID secret in each GitHub repository."
   value       = azurerm_user_assigned_identity.github.client_id
 }
 
 output "tenant_id" {
-  description = "Set as the AZURE_TENANT_ID variable in each GitHub repository."
+  description = "Set as the AZURE_TENANT_ID secret in each GitHub repository."
   value       = data.azurerm_client_config.current.tenant_id
 }
 
 output "subscription_id" {
-  description = "Set as the AZURE_SUBSCRIPTION_ID variable in each GitHub repository."
+  description = "Set as the AZURE_SUBSCRIPTION_ID secret in each GitHub repository."
   value       = data.azurerm_subscription.current.subscription_id
 }
