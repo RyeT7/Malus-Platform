@@ -5,9 +5,9 @@ module "aks_showcase" {
   name                       = "aks-${local.name}"
   resource_group_name        = azurerm_resource_group.core.name
   location                   = azurerm_resource_group.core.location
-  subnet_id                  = azurerm_subnet.aks.id
+  subnet_id                  = local.aks_subnet_id
   node_vm_size               = var.aks_node_vm_size
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.core.id
+  log_analytics_workspace_id = local.log_analytics_workspace_id
   tags                       = local.tags
 
   workload_identities = {

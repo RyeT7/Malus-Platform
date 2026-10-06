@@ -44,7 +44,7 @@ resource "azurerm_private_endpoint" "sql" {
   name                = "pe-${local.name}-sql"
   resource_group_name = azurerm_resource_group.core.name
   location            = azurerm_resource_group.core.location
-  subnet_id           = azurerm_subnet.private_endpoints.id
+  subnet_id           = local.private_endpoints_subnet_id
   tags                = local.tags
 
   private_service_connection {
@@ -56,7 +56,7 @@ resource "azurerm_private_endpoint" "sql" {
 
   private_dns_zone_group {
     name                 = "sql"
-    private_dns_zone_ids = [azurerm_private_dns_zone.sql.id]
+    private_dns_zone_ids = [local.sql_private_dns_zone_id]
   }
 }
 
@@ -76,11 +76,11 @@ resource "azurerm_cosmosdb_account" "interaction" {
   tags                              = local.tags
 
   virtual_network_rule {
-    id = azurerm_subnet.apps.id
+    id = local.apps_subnet_id
   }
 
   virtual_network_rule {
-    id = azurerm_subnet.aks.id
+    id = local.aks_subnet_id
   }
 
   consistency_policy {

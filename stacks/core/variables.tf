@@ -3,8 +3,8 @@ variable "env" {
   type        = string
 
   validation {
-    condition     = contains(["dev", "prod", "test"], var.env)
-    error_message = "env must be dev, prod or test."
+    condition     = contains(["prod", "test"], var.env)
+    error_message = "env must be prod or test."
   }
 }
 
@@ -71,6 +71,17 @@ variable "log_daily_quota_gb" {
 variable "sql_auto_pause_minutes" {
   type    = number
   default = 60
+}
+
+variable "shared_platform_env" {
+  description = "Run this environment's apps inside another environment's Container Apps environment and network, e.g. \"prod\". The subscription allows only one Container Apps environment, so the deployment test shares prod's."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.shared_platform_env == null || var.shared_platform_env == "prod"
+    error_message = "shared_platform_env must be null or \"prod\"."
+  }
 }
 
 variable "cosmos_location" {

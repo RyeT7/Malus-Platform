@@ -42,7 +42,7 @@ terraform apply "-var-file=env/identity.tfvars"
 3. Add prod's `frontend_url` output to `spa_origins` and apply `identity/` again.
 4. Build Malus-FE with `VITE_ENTRA_CLIENT_ID`, `VITE_ENTRA_TENANT_ID` and `VITE_ENTRA_API_SCOPE` from the outputs.
 
-Dev gets no redirect URI: its Static Web App is recreated nightly with a new random hostname. Run the frontend locally against the dev gateway instead.
+The deployment test gets no redirect URI: its Static Web App is created with a new random hostname on every run.
 
 ## What core deploys
 
@@ -65,12 +65,12 @@ Each service gets its own user-assigned identity, exposed as `AZURE_CLIENT_ID` s
 | Container Apps (consumption, min 0) | ~$0 inside the monthly free grant |
 | Azure SQL serverless with the free offer, auto-pause | $0 within 100k vCore-seconds/month |
 | SQL private endpoint | ~$7/month per env while it exists |
-| Cosmos DB free tier (prod) / serverless (dev) | $0 / cents |
+| Cosmos DB free tier (prod) / serverless (test) | $0 / cents |
 | Service Bus Basic, Web PubSub Free, Static Web Apps Free, Key Vault | ~$0 |
 | Log Analytics + App Insights | capped at `log_daily_quota_gb` (0.15 GB/day) |
 | AKS showcase | ~$1.5–2/day, only while `showcase_enabled = true` |
 
-Dev only exists after you run `deploy-dev.yaml`, and is destroyed every night by `nightly.yaml`, so only prod's private endpoint is paid for all month. Each day dev is up costs about $0.26, mostly its private endpoint.
+The deployment test's resources exist only while a test runs (about $0.01 per run), so only prod's private endpoint is paid for all month.
 
 ## First-time setup
 
@@ -97,7 +97,7 @@ Dev only exists after you run `deploy-dev.yaml`, and is destroyed every night by
 2. The state storage account name is derived from the subscription ID, so `stacks/core/env/*.backend.hcl` already contains it (`stmalustfd01f08`). Check it matches the `state_storage_account` output.
 3. Make the five `ghcr.io/ryet7/malus-be-<service>` packages public on GitHub. Images are pulled from `<image_repository>-<service>:<tag>` (for example `ghcr.io/ryet7/malus-be-gateway:sha-<commit>`), which is what the Malus-BE `publish-image` job pushes; it must have run on `main` at least once before the first core apply.
 4. Apply `identity/` (see "Admin sign-in" below), then set `auth_tenant_id` and `auth_audience` in `stacks/core/env/*.tfvars` from its `tenant_id` and `client_id` outputs.
-5. In each of the three GitHub repos, add the repository secrets (Settings → Secrets and variables → Actions → Secrets) `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` from the bootstrap output, so they are masked in workflow logs, and create the environments `dev` and `prod`. Put required reviewers on `prod` only; reviewers on `dev` would block the nightly destroy.
+5. In each of the three GitHub repos, add the repository secrets (Settings → Secrets and variables → Actions → Secrets) `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` from the bootstrap output, so they are masked in workflow logs, and create the environments `test` and `prod`. Put required reviewers on `prod` only; reviewers on `test` would block every pull request's deployment test and the nightly cleanup.
 
 ### Changing the GitHub trust rules
 
@@ -116,8 +116,8 @@ The apply recreates the lock. Logins are unaffected by the lock; it only blocks 
 
 ```sh
 cd stacks/core
-terraform init -backend-config=env/dev.backend.hcl
-terraform plan -var-file=env/dev.tfvars
+terraform init -backend-config=env/prod.backend.hcl
+terraform plan -lock=false -var-file=env/prod.tfvars
 terraform test -filter=tests/core.tftest.hcl
 ```
 
@@ -131,15 +131,14 @@ Always pass `-filter`. A bare `terraform test` also runs `tests/deploy.tftest.hc
 |---|---|---|
 | `ci.yaml` | Pull requests | `check` (fmt, validate, mocked tests) → `prod-safety` (prod plan in the PR summary, blocks destructive changes); `deploy-test` when `stacks/`, `modules/`, `.github/actions/` or `ci.yaml` changed |
 | `deploy.yaml` | Push to `main`, manual | `check` → `prod` (approval, apply + smoke test) |
-| `deploy-dev.yaml` | Manual only | `dev` (apply + smoke test): a sandbox for the frontend, new backend images and debugging, gone after the nightly destroy |
-| `nightly.yaml` | 16:00 UTC daily, manual | `destroy-dev`; `cleanup-test` deletes a leftover `rg-malus-test` |
+| `nightly.yaml` | 16:00 UTC daily, manual | `cleanup-test` deletes a leftover `rg-malus-test` |
 | `k8s.yaml` | Changes under `deploy/` | Helm lint, kubeconform, kind end-to-end test |
 
 Repeated steps live in composite actions under `.github/actions/`: `terraform-init`, `terraform-check`, `terraform-plan`, `terraform-apply` (apply + smoke test), `smoke-test` and `remove-test-env`. Composite actions can't read secrets, so the workflows pass the Azure IDs in as inputs.
 
 - **`deploy-test`** runs `tests/deploy.tftest.hcl`: a real apply of a throwaway `test` environment (`rg-malus-test`, `10.43.0.0/16`), then `/healthz` and `/v1/questions` through the gateway must return 200, then everything is destroyed. It takes about 20–30 minutes and a few cents. Only one runs at a time, and leftovers from an interrupted run are deleted before the next one starts.
 - **`prod-safety`** plans against prod's real state (read-only, no lock) and fails if the change would delete or replace a stateful resource: the SQL server or database, the Cosmos DB account, database or container, the storage account or its containers, or Key Vault. A fresh deploy succeeding doesn't prove that updating prod is safe; renaming the SQL server, for example, would recreate it and lose its data.
-- **Smoke tests** after every apply (`deploy.yaml`, `deploy-dev.yaml`) call `/healthz` and `/v1/questions`, retrying while the apps cold-start.
+- **Smoke tests** after every prod apply (`deploy.yaml`) call `/healthz` and `/v1/questions`, retrying while the apps cold-start.
 - **Dev is not in the merge path.** The pull request's `deploy-test` already proves a change deploys from scratch, so merges go straight to prod's approval. Two PRs that pass separately but break together would only be caught by prod's smoke test.
 - **`cleanup-test`** shares the `deploy-test` concurrency group, so it waits for a running deployment test instead of deleting it.
 
@@ -191,6 +190,7 @@ The `k8s` workflow lints the chart, validates the rendered manifests with kubeco
 
 ## Known gaps
 
+- The subscription allows **one Container Apps environment in total** (`MaxNumberOfGlobalEnvironmentsInSubExceeded`), and prod has it. The deployment test therefore sets `shared_platform_env = "prod"`: it creates its own apps, identities, databases, Cosmos DB, storage, Key Vault, Service Bus, Web PubSub and Static Web App in its own resource group, but runs the apps in prod's Container Apps environment and uses prod's network, private DNS zone and Log Analytics workspace instead of creating its own. Deleting `rg-malus-test` removes only test resources.
 - azurerm 5.8.0 fails while waiting for Container Apps and Container Apps jobs to delete, although Azure deletes them ([hashicorp/terraform-provider-azurerm#33433](https://github.com/hashicorp/terraform-provider-azurerm/issues/33433), fixed in 5.9.0, not released yet). Until then, `ci.yaml`'s `deploy-test` passes when every test run passed and only the teardown failed, then deletes `rg-malus-test` and fails if that fails; `nightly.yaml` runs `terraform destroy` a second time if the first fails. Once 5.9.0 is out, raise the azurerm constraint to `~> 5.9`, run `terraform init -upgrade`, and remove both workarounds.
 - Cosmos DB runs in **Malaysia West** (`cosmos_location`), not East Asia: this subscription has no Cosmos DB access in East Asia (`isSubscriptionRegionAccessAllowedForRegular = false`). Malaysia West is the closest allowed region to the apps (35 ms median round trip from East Asia, per Azure's latency table). It is residency-restricted, so backups use `Local` redundancy. Moving the account later recreates it and loses its data, which `prod-safety` blocks; request East Asia access at https://aka.ms/cosmosdbquota first if you ever want to.
 - The content identity is also the SQL Entra admin, so the migration job can create tables without a manual `CREATE USER` step. Splitting runtime and migration identities needs a one-time T-SQL grant from inside the VNet.

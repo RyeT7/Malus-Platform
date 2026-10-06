@@ -1,11 +1,12 @@
 run "deploy" {
   variables {
-    env              = "test"
-    location         = "eastasia"
-    cosmos_location  = "malaysiawest"
-    address_space    = "10.43.0.0/16"
-    image_repository = "ghcr.io/ryet7/malus-be"
-    auth_audience    = "api://malus-api"
+    env                 = "test"
+    location            = "eastasia"
+    shared_platform_env = "prod"
+    cosmos_location     = "malaysiawest"
+    address_space       = "10.43.0.0/16"
+    image_repository    = "ghcr.io/ryet7/malus-be"
+    auth_audience       = "api://malus-api"
   }
 }
 
