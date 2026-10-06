@@ -1,0 +1,5 @@
+resource_group_name  = "rg-malus-shared"
+storage_account_name = "stmalustfd01f08"
+container_name       = "tfstate"
+key                  = "identity.tfstate"
+tenant_id            = "3485b963-82ba-4a6f-810f-b5cc226ff898"

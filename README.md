@@ -6,10 +6,43 @@ Terraform for the Malus presentation app on Azure for Students. The subscription
 
 | Path | Applied | What it owns |
 |---|---|---|
-| `bootstrap/` | Once, from a laptop, local state | Remote-state storage account, GitHub OIDC identity and federated credentials, subscription policies (tag inheritance, deny public SQL), optional budget |
+| `bootstrap/` | Once, from a laptop; state in `bootstrap.tfstate` | Remote-state storage account, GitHub OIDC identity and federated credentials, subscription policies (tag inheritance, deny public SQL), optional budget |
+| `identity/` | From a laptop, signed in to the `Malus` tenant; state in `identity.tfstate` | The Entra app registration for admin sign-in: API scope, `admin` app role, SPA redirect URIs, admin assignments |
 | `stacks/core/` | CI, one state per env | Everything the app needs: VNet, Container Apps, Azure SQL, Cosmos DB, Blob Storage, Key Vault, Service Bus, Web PubSub, Static Web App, App Insights |
 | `modules/container_app/` | via core | One Go service on Container Apps: user-assigned identity, `/healthz` and `/readyz` probes, scale to zero |
 | `modules/aks_showcase/` | via core, `showcase_enabled = true` | One-node AKS with workload identity, KEDA, Cilium network policy |
+
+## Admin sign-in (`identity/`)
+
+The school tenant blocks app registrations, so sign-in uses a separate Entra tenant, `Malus` (`malusapp.onmicrosoft.com`, tenant ID `7e27ca5f-bfe1-4086-ae61-dc06d2a524e6`), created by hand in the portal. Azure resources stay in the school subscription; only tokens come from `Malus`.
+
+`identity/` manages one single-tenant app registration in it:
+
+- API scope `api://<client_id>/access_as_user`, issuing v2 access tokens, so `iss` is `https://login.microsoftonline.com/<Malus tenant>/v2.0` and `aud` is the client ID, which is what the gateway checks.
+- App role `admin` (the gateway's `AUTH_ADMIN_ROLE`), assigned to whoever applies the stack and to every address in `admin_emails`. Those are invited as guests and keep signing in with their own account.
+- SPA redirect URIs `<origin>/redirect.html` for each entry in `spa_origins`.
+- Tenant-wide consent for the API scope and for `openid`, `profile`, `offline_access`, so nobody gets a consent prompt.
+
+GitHub Actions can't manage the `Malus` tenant (the CI identity lives in the school tenant), so this stack is applied from a laptop. State stays in the school storage account; the backend file pins the school tenant, the provider pins `Malus`:
+
+```powershell
+az login
+az login --tenant 7e27ca5f-bfe1-4086-ae61-dc06d2a524e6 --allow-no-subscriptions
+cd identity
+$env:ARM_SUBSCRIPTION_ID = az account show --query id -o tsv
+$env:TF_VAR_admin_emails = '["<other admin account>"]'
+terraform init "-backend-config=env/identity.backend.hcl"
+terraform apply "-var-file=env/identity.tfvars"
+```
+
+`TF_VAR_admin_emails` is optional and keeps addresses out of the repo. Order of operations on a fresh setup:
+
+1. Apply `identity/` with only `http://localhost:5173` in `spa_origins`.
+2. Copy `client_id` and `tenant_id` into `stacks/core/env/prod.tfvars` (`auth_audience`, `auth_tenant_id`) and deploy prod.
+3. Add prod's `frontend_url` output to `spa_origins` and apply `identity/` again.
+4. Build Malus-FE with `VITE_ENTRA_CLIENT_ID`, `VITE_ENTRA_TENANT_ID` and `VITE_ENTRA_API_SCOPE` from the outputs.
+
+Dev gets no redirect URI: its Static Web App is recreated nightly with a new random hostname. Run the frontend locally against the dev gateway instead.
 
 ## What core deploys
 
@@ -63,7 +96,7 @@ Dev only exists after you run `deploy-dev.yaml`, and is destroyed every night by
 
 2. The state storage account name is derived from the subscription ID, so `stacks/core/env/*.backend.hcl` already contains it (`stmalustfd01f08`). Check it matches the `state_storage_account` output.
 3. Make the five `ghcr.io/ryet7/malus-be-<service>` packages public on GitHub. Images are pulled from `<image_repository>-<service>:<tag>` (for example `ghcr.io/ryet7/malus-be-gateway:sha-<commit>`), which is what the Malus-BE `publish-image` job pushes; it must have run on `main` at least once before the first core apply.
-4. Set `auth_audience` in `stacks/core/env/*.tfvars` to the API's app ID URI or client ID from Entra. The school tenant does not allow creating app registrations, so this needs a tenant where you can register an app (see `auth_tenant_id`).
+4. Apply `identity/` (see "Admin sign-in" below), then set `auth_tenant_id` and `auth_audience` in `stacks/core/env/*.tfvars` from its `tenant_id` and `client_id` outputs.
 5. In each of the three GitHub repos, add the repository secrets (Settings → Secrets and variables → Actions → Secrets) `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` from the bootstrap output, so they are masked in workflow logs, and create the environments `dev` and `prod`. Put required reviewers on `prod` only; reviewers on `dev` would block the nightly destroy.
 
 ### Changing the GitHub trust rules
