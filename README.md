@@ -37,7 +37,7 @@ Each service gets its own user-assigned identity, exposed as `AZURE_CLIENT_ID` s
 | Log Analytics + App Insights | capped at `log_daily_quota_gb` (0.15 GB/day) |
 | AKS showcase | ~$1.5–2/day, only while `showcase_enabled = true` |
 
-Dev is destroyed every night by `nightly.yaml`, so only prod's private endpoint is paid for all month.
+Dev only exists after you run `deploy-dev.yaml`, and is destroyed every night by `nightly.yaml`, so only prod's private endpoint is paid for all month. Each day dev is up costs about $0.26, mostly its private endpoint.
 
 ## First-time setup
 
@@ -97,15 +97,17 @@ Always pass `-filter`. A bare `terraform test` also runs `tests/deploy.tftest.hc
 | Workflow | Runs on | Jobs |
 |---|---|---|
 | `ci.yaml` | Pull requests | `check` (fmt, validate, mocked tests) → `plan-dev` and `prod-safety`; `deploy-test` when `stacks/`, `modules/`, `.github/actions/` or `ci.yaml` changed |
-| `deploy.yaml` | Push to `main`, manual | `check` → `dev` (apply + smoke test) → `prod` (approval, apply + smoke test) |
+| `deploy.yaml` | Push to `main`, manual | `check` → `prod` (approval, apply + smoke test) |
+| `deploy-dev.yaml` | Manual only | `dev` (apply + smoke test): a sandbox for the frontend, new backend images and debugging, gone after the nightly destroy |
 | `nightly.yaml` | 16:00 UTC daily, manual | `destroy-dev`; `cleanup-test` deletes a leftover `rg-malus-test` |
 | `k8s.yaml` | Changes under `deploy/` | Helm lint, kubeconform, kind end-to-end test |
 
-Repeated steps live in composite actions under `.github/actions/`: `terraform-init`, `terraform-check`, `terraform-plan`, `smoke-test` and `remove-test-env`. Composite actions can't read secrets, so the workflows pass the Azure IDs in as inputs.
+Repeated steps live in composite actions under `.github/actions/`: `terraform-init`, `terraform-check`, `terraform-plan`, `terraform-apply` (apply + smoke test), `smoke-test` and `remove-test-env`. Composite actions can't read secrets, so the workflows pass the Azure IDs in as inputs.
 
 - **`deploy-test`** runs `tests/deploy.tftest.hcl`: a real apply of a throwaway `test` environment (`rg-malus-test`, `10.43.0.0/16`), then `/healthz` and `/v1/questions` through the gateway must return 200, then everything is destroyed. It takes about 20–30 minutes and a few cents. Only one runs at a time, and leftovers from an interrupted run are deleted before the next one starts.
 - **`prod-safety`** plans against prod's real state (read-only, no lock) and fails if the change would delete or replace a stateful resource: the SQL server or database, the Cosmos DB account, database or container, the storage account or its containers, or Key Vault. A fresh deploy succeeding doesn't prove that updating prod is safe; renaming the SQL server, for example, would recreate it and lose its data.
-- **Smoke tests** after each apply in `deploy.yaml` call `/healthz` and `/v1/questions`, retrying while the apps cold-start. A failure on dev stops the run before prod.
+- **Smoke tests** after every apply (`deploy.yaml`, `deploy-dev.yaml`) call `/healthz` and `/v1/questions`, retrying while the apps cold-start.
+- **Dev is not in the merge path.** The pull request's `deploy-test` already proves a change deploys from scratch, so merges go straight to prod's approval. Two PRs that pass separately but break together would only be caught by prod's smoke test.
 - **`cleanup-test`** shares the `deploy-test` concurrency group, so it waits for a running deployment test instead of deleting it.
 
 ## Presentation week

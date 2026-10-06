@@ -1,8 +1,6 @@
-name: deploy
+name: deploy-dev
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -17,23 +15,16 @@ env:
   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
 jobs:
-  check:
+  dev:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/terraform-check
-
-  prod:
-    needs: check
-    runs-on: ubuntu-latest
-    environment: prod
-    concurrency: terraform-prod
+    environment: dev
+    concurrency: terraform-dev
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/terraform-init
         with:
-          backend-config: env/prod.backend.hcl
+          backend-config: env/dev.backend.hcl
       - uses: ./.github/actions/terraform-plan
         with:
-          env: prod
+          env: dev
       - uses: ./.github/actions/terraform-apply

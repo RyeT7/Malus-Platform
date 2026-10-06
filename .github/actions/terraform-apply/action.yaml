@@ -1,0 +1,19 @@
+name: terraform-apply
+description: Apply the saved tfplan in stacks/core, then smoke test the environment's gateway
+
+runs:
+  using: composite
+
+  steps:
+    - shell: bash
+      working-directory: stacks/core
+      run: terraform apply -input=false tfplan
+
+    - id: out
+      shell: bash
+      working-directory: stacks/core
+      run: echo "gateway_url=$(terraform output -raw gateway_url)" >> "$GITHUB_OUTPUT"
+
+    - uses: ./.github/actions/smoke-test
+      with:
+        url: ${{ steps.out.outputs.gateway_url }}
