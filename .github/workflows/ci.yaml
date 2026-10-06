@@ -21,19 +21,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/terraform-check
 
-  plan-dev:
-    needs: check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/terraform-init
-        with:
-          backend-config: env/dev.backend.hcl
-      - uses: ./.github/actions/terraform-plan
-        with:
-          env: dev
-          lock: "false"
-
   prod-safety:
     needs: check
     runs-on: ubuntu-latest

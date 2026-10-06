@@ -96,7 +96,7 @@ Always pass `-filter`. A bare `terraform test` also runs `tests/deploy.tftest.hc
 
 | Workflow | Runs on | Jobs |
 |---|---|---|
-| `ci.yaml` | Pull requests | `check` (fmt, validate, mocked tests) → `plan-dev` and `prod-safety`; `deploy-test` when `stacks/`, `modules/`, `.github/actions/` or `ci.yaml` changed |
+| `ci.yaml` | Pull requests | `check` (fmt, validate, mocked tests) → `prod-safety` (prod plan in the PR summary, blocks destructive changes); `deploy-test` when `stacks/`, `modules/`, `.github/actions/` or `ci.yaml` changed |
 | `deploy.yaml` | Push to `main`, manual | `check` → `prod` (approval, apply + smoke test) |
 | `deploy-dev.yaml` | Manual only | `dev` (apply + smoke test): a sandbox for the frontend, new backend images and debugging, gone after the nightly destroy |
 | `nightly.yaml` | 16:00 UTC daily, manual | `destroy-dev`; `cleanup-test` deletes a leftover `rg-malus-test` |
