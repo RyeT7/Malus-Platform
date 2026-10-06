@@ -3,9 +3,6 @@ name: k8s
 on:
   pull_request:
     paths: ["deploy/**", ".github/workflows/k8s.yaml"]
-  push:
-    branches: [main]
-    paths: ["deploy/**", ".github/workflows/k8s.yaml"]
   workflow_dispatch:
 
 permissions:
