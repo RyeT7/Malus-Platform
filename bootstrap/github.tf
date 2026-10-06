@@ -22,6 +22,28 @@ locals {
   delegable_role_guids = join(", ", [
     for name in local.delegable_roles : basename(data.azurerm_role_definition.delegable[name].id)
   ])
+
+  rbac_admin_condition = <<-EOT
+    (
+      (
+        !(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})
+      )
+      OR
+      (
+        @Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {${local.delegable_role_guids}}
+      )
+    )
+    AND
+    (
+      (
+        !(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})
+      )
+      OR
+      (
+        @Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {${local.delegable_role_guids}}
+      )
+    )
+  EOT
 }
 
 resource "azurerm_user_assigned_identity" "github" {
@@ -70,27 +92,7 @@ resource "azurerm_role_assignment" "github_rbac_admin" {
   principal_id         = azurerm_user_assigned_identity.github.principal_id
   principal_type       = "ServicePrincipal"
   condition_version    = "2.0"
-  condition            = <<-EOT
-    (
-      (
-        !(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})
-      )
-      OR
-      (
-        @Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {${local.delegable_role_guids}}
-      )
-    )
-    AND
-    (
-      (
-        !(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})
-      )
-      OR
-      (
-        @Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {${local.delegable_role_guids}}
-      )
-    )
-  EOT
+  condition            = replace(local.rbac_admin_condition, "\r", "")
 }
 
 resource "azurerm_role_assignment" "github_state" {
