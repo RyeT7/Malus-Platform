@@ -63,7 +63,7 @@ resource "azurerm_private_endpoint" "sql" {
 resource "azurerm_cosmosdb_account" "interaction" {
   name                         = "cosmos-${local.name}-${local.suffix}"
   resource_group_name          = azurerm_resource_group.core.name
-  location                     = azurerm_resource_group.core.location
+  location                     = coalesce(var.cosmos_location, var.location)
   offer_type                   = "Standard"
   kind                         = "GlobalDocumentDB"
   free_tier_enabled            = var.cosmos_free_tier
@@ -85,6 +85,11 @@ resource "azurerm_cosmosdb_account" "interaction" {
 
   consistency_policy {
     consistency_level = "Session"
+  }
+
+  backup {
+    type               = "Periodic"
+    storage_redundancy = "Local"
   }
 
   geo_location {

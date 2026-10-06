@@ -191,6 +191,7 @@ The `k8s` workflow lints the chart, validates the rendered manifests with kubeco
 
 ## Known gaps
 
+- Cosmos DB runs in **Malaysia West** (`cosmos_location`), not East Asia: this subscription has no Cosmos DB access in East Asia (`isSubscriptionRegionAccessAllowedForRegular = false`). Malaysia West is the closest allowed region to the apps (35 ms median round trip from East Asia, per Azure's latency table). It is residency-restricted, so backups use `Local` redundancy. Moving the account later recreates it and loses its data, which `prod-safety` blocks; request East Asia access at https://aka.ms/cosmosdbquota first if you ever want to.
 - The content identity is also the SQL Entra admin, so the migration job can create tables without a manual `CREATE USER` step. Splitting runtime and migration identities needs a one-time T-SQL grant from inside the VNet.
 - Worker scaling stays at 0–1 replicas until it reads Service Bus; the KEDA `azure-servicebus` rule should be added then.
 - Not built yet: second region and Front Door for the failover drill, Flux/Argo CD on AKS, Infracost and Conftest in PR checks, drift detection.
