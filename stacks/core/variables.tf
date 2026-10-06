@@ -73,6 +73,12 @@ variable "sql_auto_pause_minutes" {
   default = 60
 }
 
+variable "sql_location" {
+  description = "Region for the Azure SQL server and database. The SQL free offer pins every free database in a subscription to the region of the first one (East Asia here), while the private endpoint stays in the environment's region."
+  type        = string
+  default     = null
+}
+
 variable "cosmos_location" {
   description = "Region for the Cosmos DB account when the primary region has no Cosmos DB capacity for this subscription. Must also be an allowed region."
   type        = string

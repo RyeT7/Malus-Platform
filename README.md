@@ -130,10 +130,10 @@ Always pass `-filter`. A bare `terraform test` also runs `tests/deploy.tftest.hc
 | Workflow | Runs on | Jobs |
 |---|---|---|
 | `ci.yaml` | Pull requests | `check` (fmt, validate, mocked tests) → `prod-safety` (prod plan in the PR summary, blocks destructive changes); `deploy-test` when `stacks/`, `modules/`, `.github/actions/` or `ci.yaml` changed |
-| `deploy.yaml` | Push to `main`, manual | `check` → `prod` (approval, apply + smoke test) |
+| `deploy.yaml` | Push to `main` that changes `stacks/`, `modules/`, `.github/actions/` or `deploy.yaml`; manual | `check` → `prod` (approval, apply + smoke test) |
 | `deploy-dev.yaml` | Manual only | `dev` (apply + smoke test): a sandbox for the frontend, new backend images and debugging, gone after the nightly destroy |
 | `nightly.yaml` | 16:00 UTC daily, manual | `destroy-dev`; `cleanup-test` deletes a leftover `rg-malus-test` |
-| `k8s.yaml` | Changes under `deploy/` | Helm lint, kubeconform, kind end-to-end test |
+| `k8s.yaml` | Pull requests that change `deploy/` or `k8s.yaml` | Helm lint, kubeconform, kind end-to-end test |
 
 Repeated steps live in composite actions under `.github/actions/`: `terraform-init`, `terraform-check`, `terraform-plan`, `terraform-apply` (apply + smoke test), `smoke-test` and `remove-test-env`. Composite actions can't read secrets, so the workflows pass the Azure IDs in as inputs.
 
@@ -191,6 +191,8 @@ The `k8s` workflow lints the chart, validates the rendered manifests with kubeco
 
 ## Known gaps
 
+- The subscription allows **one Container Apps environment per region** (`ManagedEnvironmentCount` 1/1 in every allowed region). Prod uses East Asia, so the deployment test runs in **Malaysia West** and dev in **Korea Central**; each needs its own region because both can exist at once. Their SQL server and database stay in **East Asia** (`sql_location`): the SQL free offer pins every free database in the subscription to the region of the first one, and a private endpoint can reach a SQL server in another region. Static Web Apps stay in East Asia (`static_web_app_location`).
+- `key_vault_admin` grants Key Vault Administrator to whoever runs Terraform. Prod is always applied by CI; applying prod from a laptop would swap that assignment to your user.
 - azurerm 5.8.0 fails while waiting for Container Apps and Container Apps jobs to delete, although Azure deletes them ([hashicorp/terraform-provider-azurerm#33433](https://github.com/hashicorp/terraform-provider-azurerm/issues/33433), fixed in 5.9.0, not released yet). Until then, `ci.yaml`'s `deploy-test` passes when every test run passed and only the teardown failed, then deletes `rg-malus-test` and fails if that fails; `nightly.yaml` runs `terraform destroy` a second time if the first fails. Once 5.9.0 is out, raise the azurerm constraint to `~> 5.9`, run `terraform init -upgrade`, and remove both workarounds.
 - Cosmos DB runs in **Malaysia West** (`cosmos_location`), not East Asia: this subscription has no Cosmos DB access in East Asia (`isSubscriptionRegionAccessAllowedForRegular = false`). Malaysia West is the closest allowed region to the apps (35 ms median round trip from East Asia, per Azure's latency table). It is residency-restricted, so backups use `Local` redundancy. Moving the account later recreates it and loses its data, which `prod-safety` blocks; request East Asia access at https://aka.ms/cosmosdbquota first if you ever want to.
 - The content identity is also the SQL Entra admin, so the migration job can create tables without a manual `CREATE USER` step. Splitting runtime and migration identities needs a one-time T-SQL grant from inside the VNet.

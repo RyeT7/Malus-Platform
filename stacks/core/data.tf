@@ -1,7 +1,7 @@
 resource "azurerm_mssql_server" "content" {
   name                          = "sql-${local.name}-${local.suffix}"
   resource_group_name           = azurerm_resource_group.core.name
-  location                      = azurerm_resource_group.core.location
+  location                      = coalesce(var.sql_location, var.location)
   version                       = "12.0"
   minimum_tls_version           = "1.2"
   public_network_access_enabled = false
@@ -19,7 +19,7 @@ resource "azapi_resource" "content_db" {
   type      = "Microsoft.Sql/servers/databases@2025-01-01"
   name      = "malus_content"
   parent_id = azurerm_mssql_server.content.id
-  location  = azurerm_resource_group.core.location
+  location  = coalesce(var.sql_location, var.location)
   tags      = local.tags
 
   body = {
