@@ -73,10 +73,15 @@ variable "sql_auto_pause_minutes" {
   default = 60
 }
 
-variable "sql_location" {
-  description = "Region for the Azure SQL server and database. The SQL free offer pins every free database in a subscription to the region of the first one (East Asia here), while the private endpoint stays in the environment's region."
+variable "shared_platform_env" {
+  description = "Run this environment's apps inside another environment's Container Apps environment and network, e.g. \"prod\". The subscription allows only one Container Apps environment, so test and dev share prod's."
   type        = string
   default     = null
+
+  validation {
+    condition     = var.shared_platform_env == null || var.shared_platform_env == "prod"
+    error_message = "shared_platform_env must be null or \"prod\"."
+  }
 }
 
 variable "cosmos_location" {

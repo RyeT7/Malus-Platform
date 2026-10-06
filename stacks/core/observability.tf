@@ -1,4 +1,6 @@
 resource "azurerm_log_analytics_workspace" "core" {
+  count = local.own_platform
+
   name                = "log-${local.name}"
   resource_group_name = azurerm_resource_group.core.name
   location            = azurerm_resource_group.core.location
@@ -12,7 +14,7 @@ resource "azurerm_application_insights" "core" {
   name                 = "appi-${local.name}"
   resource_group_name  = azurerm_resource_group.core.name
   location             = azurerm_resource_group.core.location
-  workspace_id         = azurerm_log_analytics_workspace.core.id
+  workspace_id         = local.log_analytics_workspace_id
   application_type     = "web"
   daily_data_cap_in_gb = var.log_daily_quota_gb
   tags                 = local.tags

@@ -1,10 +1,12 @@
 resource "azurerm_container_app_environment" "core" {
+  count = local.own_platform
+
   name                               = "cae-${local.name}"
   resource_group_name                = azurerm_resource_group.core.name
   location                           = azurerm_resource_group.core.location
   logs_destination                   = "log-analytics"
-  log_analytics_workspace_id         = azurerm_log_analytics_workspace.core.id
-  infrastructure_subnet_id           = azurerm_subnet.apps.id
+  log_analytics_workspace_id         = local.log_analytics_workspace_id
+  infrastructure_subnet_id           = local.apps_subnet_id
   infrastructure_resource_group_name = "rg-${local.name}-cae-infra"
   internal_load_balancer_enabled     = false
   tags                               = local.tags
@@ -78,7 +80,7 @@ module "app" {
 
   name                = "ca-${local.name}-${each.key}"
   resource_group_name = azurerm_resource_group.core.name
-  environment_id      = azurerm_container_app_environment.core.id
+  environment_id      = local.container_app_environment_id
   image               = "${var.image_repository}-${each.key}:${var.image_tag}"
   identity_id         = azurerm_user_assigned_identity.service[each.key].id
   identity_client_id  = azurerm_user_assigned_identity.service[each.key].client_id
@@ -100,7 +102,7 @@ resource "azurerm_container_app_job" "migrate" {
   name                         = "caj-${local.name}-migrate"
   resource_group_name          = azurerm_resource_group.core.name
   location                     = azurerm_resource_group.core.location
-  container_app_environment_id = azurerm_container_app_environment.core.id
+  container_app_environment_id = local.container_app_environment_id
   workload_profile_name        = "Consumption"
   replica_timeout_in_seconds   = 600
   replica_retry_limit          = 1

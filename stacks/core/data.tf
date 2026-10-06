@@ -1,7 +1,7 @@
 resource "azurerm_mssql_server" "content" {
   name                          = "sql-${local.name}-${local.suffix}"
   resource_group_name           = azurerm_resource_group.core.name
-  location                      = coalesce(var.sql_location, var.location)
+  location                      = azurerm_resource_group.core.location
   version                       = "12.0"
   minimum_tls_version           = "1.2"
   public_network_access_enabled = false
@@ -19,7 +19,7 @@ resource "azapi_resource" "content_db" {
   type      = "Microsoft.Sql/servers/databases@2025-01-01"
   name      = "malus_content"
   parent_id = azurerm_mssql_server.content.id
-  location  = coalesce(var.sql_location, var.location)
+  location  = azurerm_resource_group.core.location
   tags      = local.tags
 
   body = {
@@ -44,7 +44,7 @@ resource "azurerm_private_endpoint" "sql" {
   name                = "pe-${local.name}-sql"
   resource_group_name = azurerm_resource_group.core.name
   location            = azurerm_resource_group.core.location
-  subnet_id           = azurerm_subnet.private_endpoints.id
+  subnet_id           = local.private_endpoints_subnet_id
   tags                = local.tags
 
   private_service_connection {
@@ -56,7 +56,7 @@ resource "azurerm_private_endpoint" "sql" {
 
   private_dns_zone_group {
     name                 = "sql"
-    private_dns_zone_ids = [azurerm_private_dns_zone.sql.id]
+    private_dns_zone_ids = [local.sql_private_dns_zone_id]
   }
 }
 
@@ -76,11 +76,11 @@ resource "azurerm_cosmosdb_account" "interaction" {
   tags                              = local.tags
 
   virtual_network_rule {
-    id = azurerm_subnet.apps.id
+    id = local.apps_subnet_id
   }
 
   virtual_network_rule {
-    id = azurerm_subnet.aks.id
+    id = local.aks_subnet_id
   }
 
   consistency_policy {

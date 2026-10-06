@@ -61,6 +61,57 @@ run "core_defaults" {
     condition     = local.service_env.gateway.AUTH_ISSUER == "https://login.microsoftonline.com/00000000-0000-0000-0000-00000000aaaa/v2.0"
     error_message = "Gateway issuer must point at the Entra tenant."
   }
+
+  assert {
+    condition     = length(azurerm_container_app_environment.core) == 1 && length(azurerm_virtual_network.core) == 1 && length(azurerm_log_analytics_workspace.core) == 1
+    error_message = "Without shared_platform_env the stack creates its own Container Apps environment, network and workspace."
+  }
+}
+
+run "shared_platform" {
+  command = plan
+
+  variables {
+    shared_platform_env = "prod"
+  }
+
+  override_data {
+    target = data.azurerm_container_app_environment.shared
+    values = {
+      id = "/subscriptions/00000000-0000-0000-0000-00000000bbbb/resourceGroups/rg-malus-prod/providers/Microsoft.App/managedEnvironments/cae-malus-prod"
+    }
+  }
+
+  override_data {
+    target = data.azurerm_subnet.shared
+    values = {
+      id = "/subscriptions/00000000-0000-0000-0000-00000000bbbb/resourceGroups/rg-malus-prod/providers/Microsoft.Network/virtualNetworks/vnet-malus-prod/subnets/snet-apps"
+    }
+  }
+
+  override_data {
+    target = data.azurerm_private_dns_zone.shared_sql
+    values = {
+      id = "/subscriptions/00000000-0000-0000-0000-00000000bbbb/resourceGroups/rg-malus-prod/providers/Microsoft.Network/privateDnsZones/privatelink.database.windows.net"
+    }
+  }
+
+  override_data {
+    target = data.azurerm_log_analytics_workspace.shared
+    values = {
+      id = "/subscriptions/00000000-0000-0000-0000-00000000bbbb/resourceGroups/rg-malus-prod/providers/Microsoft.OperationalInsights/workspaces/log-malus-prod"
+    }
+  }
+
+  assert {
+    condition     = length(azurerm_container_app_environment.core) == 0 && length(azurerm_virtual_network.core) == 0 && length(azurerm_subnet.apps) == 0 && length(azurerm_private_dns_zone.sql) == 0 && length(azurerm_log_analytics_workspace.core) == 0
+    error_message = "With shared_platform_env the stack must not create its own Container Apps environment, network, DNS zone or workspace."
+  }
+
+  assert {
+    condition     = local.container_app_environment_id == "/subscriptions/00000000-0000-0000-0000-00000000bbbb/resourceGroups/rg-malus-prod/providers/Microsoft.App/managedEnvironments/cae-malus-prod"
+    error_message = "Apps must run in the shared Container Apps environment."
+  }
 }
 
 run "showcase_toggle" {
