@@ -1,0 +1,68 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TF_IN_AUTOMATION: "true"
+  ARM_USE_OIDC: "true"
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/terraform-check
+
+  dev:
+    needs: check
+    runs-on: ubuntu-latest
+    environment: dev
+    concurrency: terraform-dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/terraform-init
+        with:
+          backend-config: env/dev.backend.hcl
+      - uses: ./.github/actions/terraform-plan
+        with:
+          env: dev
+      - run: terraform apply -input=false tfplan
+        working-directory: stacks/core
+      - id: out
+        run: echo "gateway_url=$(terraform output -raw gateway_url)" >> "$GITHUB_OUTPUT"
+        working-directory: stacks/core
+      - uses: ./.github/actions/smoke-test
+        with:
+          url: ${{ steps.out.outputs.gateway_url }}
+
+  prod:
+    needs: dev
+    runs-on: ubuntu-latest
+    environment: prod
+    concurrency: terraform-prod
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/terraform-init
+        with:
+          backend-config: env/prod.backend.hcl
+      - uses: ./.github/actions/terraform-plan
+        with:
+          env: prod
+      - run: terraform apply -input=false tfplan
+        working-directory: stacks/core
+      - id: out
+        run: echo "gateway_url=$(terraform output -raw gateway_url)" >> "$GITHUB_OUTPUT"
+        working-directory: stacks/core
+      - uses: ./.github/actions/smoke-test
+        with:
+          url: ${{ steps.out.outputs.gateway_url }}

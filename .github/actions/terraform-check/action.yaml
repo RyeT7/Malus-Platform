@@ -1,0 +1,18 @@
+name: terraform-check
+description: Check formatting, validate every configuration and run the mocked tests
+
+runs:
+  using: composite
+
+  steps:
+    - uses: ./.github/actions/terraform-init
+
+    - shell: bash
+      run: |
+        terraform fmt -check -recursive
+        for dir in bootstrap modules/container_app modules/aks_showcase stacks/core; do
+          terraform -chdir="$dir" init -backend=false -input=false
+          terraform -chdir="$dir" validate
+        done
+        terraform -chdir=modules/container_app test
+        terraform -chdir=stacks/core test -filter=tests/core.tftest.hcl

@@ -19,16 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/terraform-init
-      - run: terraform fmt -check -recursive
-      - name: validate and test
-        run: |
-          for dir in bootstrap modules/container_app modules/aks_showcase stacks/core; do
-            terraform -chdir="$dir" init -backend=false -input=false
-            terraform -chdir="$dir" validate
-          done
-          terraform -chdir=modules/container_app test
-          terraform -chdir=stacks/core test -filter=tests/core.tftest.hcl
+      - uses: ./.github/actions/terraform-check
 
   plan-dev:
     needs: check
