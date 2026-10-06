@@ -88,7 +88,7 @@ resource "azurerm_cosmosdb_account" "interaction" {
   }
 
   geo_location {
-    location          = azurerm_resource_group.core.location
+    location          = coalesce(var.cosmos_location, var.location)
     failover_priority = 0
   }
 

@@ -73,6 +73,12 @@ variable "sql_auto_pause_minutes" {
   default = 60
 }
 
+variable "cosmos_location" {
+  description = "Region for the Cosmos DB account when the primary region has no Cosmos DB capacity for this subscription. Must also be an allowed region."
+  type        = string
+  default     = null
+}
+
 variable "cosmos_free_tier" {
   description = "Only one free-tier Cosmos DB account is allowed per subscription; give it to prod. Other environments use serverless."
   type        = bool
