@@ -26,8 +26,11 @@ jobs:
       - uses: ./.github/actions/terraform-init
         with:
           backend-config: env/dev.backend.hcl
-      - run: terraform destroy -input=false -auto-approve -var-file=env/dev.tfvars
+      - name: destroy, retried once for the azurerm 5.8 Container Apps delete polling bug
         working-directory: stacks/core
+        run: |
+          terraform destroy -input=false -auto-approve -var-file=env/dev.tfvars ||
+            terraform destroy -input=false -auto-approve -var-file=env/dev.tfvars
 
   cleanup-test:
     runs-on: ubuntu-latest

@@ -93,12 +93,25 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - uses: ./.github/actions/terraform-init
-      - run: terraform test -filter=tests/deploy.tftest.hcl
+      - name: deployment test
         working-directory: stacks/core
+        run: |
+          set +e
+          terraform test -no-color -filter=tests/deploy.tftest.hcl 2>&1 | tee test.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -eq 0 ]; then
+            exit 0
+          fi
+          summary=$(grep -E '^(Success|Failure)! [0-9]+ passed, [0-9]+ failed' test.log | tail -1)
+          if echo "$summary" | grep -qE '^Failure! [1-9][0-9]* passed, 0 failed\.$' && grep -q 'Terraform left the following resources in state' test.log; then
+            echo "::warning::Every test run passed; only Terraform's teardown failed (azurerm 5.8 Container Apps delete polling bug, hashicorp/terraform-provider-azurerm#33433, fixed in 5.9.0). The next step deletes the resource group and fails the job if that fails."
+            exit 0
+          fi
+          exit "$status"
       - if: always()
         uses: ./.github/actions/remove-test-env
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          wait: "false"

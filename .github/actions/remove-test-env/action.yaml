@@ -33,6 +33,13 @@ runs:
           echo "$RESOURCE_GROUP does not exist"
           exit 0
         fi
+        if [ "$(az group show -n "$RESOURCE_GROUP" --query properties.provisioningState -o tsv)" = "Deleting" ]; then
+          echo "$RESOURCE_GROUP is already being deleted"
+          if [ "$WAIT" = "true" ]; then
+            az group wait --deleted -n "$RESOURCE_GROUP"
+          fi
+          exit 0
+        fi
         if [ "$WAIT" = "true" ]; then
           az group delete -n "$RESOURCE_GROUP" --yes
         else
