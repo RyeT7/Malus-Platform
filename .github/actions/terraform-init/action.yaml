@@ -1,0 +1,30 @@
+name: terraform-init
+description: Install Terraform and initialise a configuration, with a backend file or without a backend
+
+inputs:
+  working-directory:
+    description: Configuration directory to initialise
+    default: stacks/core
+  backend-config:
+    description: Backend file relative to the working directory; empty initialises without a backend
+    default: ""
+
+runs:
+  using: composite
+
+  steps:
+    - uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: "1.12.2"
+        terraform_wrapper: false
+
+    - shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        BACKEND_CONFIG: ${{ inputs.backend-config }}
+      run: |
+        if [ -n "$BACKEND_CONFIG" ]; then
+          terraform init -input=false -backend-config="$BACKEND_CONFIG"
+        else
+          terraform init -input=false -backend=false
+        fi

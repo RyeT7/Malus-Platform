@@ -1,0 +1,40 @@
+name: remove-test-env
+description: Log in to Azure and delete the deployment test's resource group if it exists
+
+inputs:
+  client-id:
+    required: true
+  tenant-id:
+    required: true
+  subscription-id:
+    required: true
+  resource-group:
+    default: rg-malus-test
+  wait:
+    description: Wait for the deletion to finish
+    default: "true"
+
+runs:
+  using: composite
+
+  steps:
+    - uses: azure/login@v2
+      with:
+        client-id: ${{ inputs.client-id }}
+        tenant-id: ${{ inputs.tenant-id }}
+        subscription-id: ${{ inputs.subscription-id }}
+
+    - shell: bash
+      env:
+        RESOURCE_GROUP: ${{ inputs.resource-group }}
+        WAIT: ${{ inputs.wait }}
+      run: |
+        if [ "$(az group exists -n "$RESOURCE_GROUP")" != "true" ]; then
+          echo "$RESOURCE_GROUP does not exist"
+          exit 0
+        fi
+        if [ "$WAIT" = "true" ]; then
+          az group delete -n "$RESOURCE_GROUP" --yes
+        else
+          az group delete -n "$RESOURCE_GROUP" --yes --no-wait
+        fi

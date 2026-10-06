@@ -1,0 +1,28 @@
+name: terraform-plan
+description: Plan an environment of stacks/core into tfplan and show it in the job summary
+
+inputs:
+  env:
+    description: Environment name; selects env/<env>.tfvars
+    required: true
+  lock:
+    description: Whether to lock the state while planning
+    default: "true"
+
+runs:
+  using: composite
+
+  steps:
+    - shell: bash
+      working-directory: stacks/core
+      env:
+        PLAN_ENV: ${{ inputs.env }}
+        PLAN_LOCK: ${{ inputs.lock }}
+      run: |
+        terraform plan -input=false -no-color -lock="$PLAN_LOCK" -var-file="env/$PLAN_ENV.tfvars" -out=tfplan
+        {
+          echo "### $PLAN_ENV plan"
+          echo '```'
+          terraform show -no-color tfplan | tail -c 60000
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
