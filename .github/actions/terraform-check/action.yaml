@@ -10,7 +10,7 @@ runs:
     - shell: bash
       run: |
         terraform fmt -check -recursive
-        for dir in bootstrap modules/container_app modules/aks_showcase stacks/core; do
+        for dir in bootstrap identity modules/container_app modules/aks_showcase stacks/core; do
           terraform -chdir="$dir" init -backend=false -input=false
           terraform -chdir="$dir" validate
         done
