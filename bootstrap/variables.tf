@@ -21,7 +21,7 @@ variable "github_repositories" {
 variable "environments" {
   description = "GitHub environments that map to Terraform environments."
   type        = list(string)
-  default     = ["dev", "prod"]
+  default     = ["test", "prod"]
 }
 
 variable "enforce_resource_group_tags" {

@@ -13,7 +13,7 @@ mock_provider "azurerm" {
 }
 
 variables {
-  env              = "dev"
+  env              = "prod"
   location         = "eastasia"
   image_repository = "ghcr.io/example/malus-be"
   auth_audience    = "api://malus-api"
@@ -48,7 +48,7 @@ run "core_defaults" {
   }
 
   assert {
-    condition     = azurerm_resource_group.core.tags.env == "dev" && azurerm_resource_group.core.tags.project == "malus"
+    condition     = azurerm_resource_group.core.tags.env == "prod" && azurerm_resource_group.core.tags.project == "malus"
     error_message = "Resource group must carry env and project tags."
   }
 

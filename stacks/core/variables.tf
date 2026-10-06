@@ -3,8 +3,8 @@ variable "env" {
   type        = string
 
   validation {
-    condition     = contains(["dev", "prod", "test"], var.env)
-    error_message = "env must be dev, prod or test."
+    condition     = contains(["prod", "test"], var.env)
+    error_message = "env must be prod or test."
   }
 }
 
@@ -74,7 +74,7 @@ variable "sql_auto_pause_minutes" {
 }
 
 variable "shared_platform_env" {
-  description = "Run this environment's apps inside another environment's Container Apps environment and network, e.g. \"prod\". The subscription allows only one Container Apps environment, so test and dev share prod's."
+  description = "Run this environment's apps inside another environment's Container Apps environment and network, e.g. \"prod\". The subscription allows only one Container Apps environment, so the deployment test shares prod's."
   type        = string
   default     = null
 
