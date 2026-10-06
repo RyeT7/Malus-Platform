@@ -37,7 +37,7 @@ Each service gets its own user-assigned identity, exposed as `AZURE_CLIENT_ID` s
 | Log Analytics + App Insights | capped at `log_daily_quota_gb` (0.15 GB/day) |
 | AKS showcase | ~$1.5–2/day, only while `showcase_enabled = true` |
 
-Dev is destroyed every night by `nightly-destroy.yaml`, so only prod's private endpoint is paid for all month.
+Dev is destroyed every night by `nightly.yaml`, so only prod's private endpoint is paid for all month.
 
 ## First-time setup
 
@@ -90,12 +90,23 @@ terraform test -filter=tests/core.tftest.hcl
 
 Always pass `-filter`. A bare `terraform test` also runs `tests/deploy.tftest.hcl`, which deploys a real `test` environment to Azure. In PowerShell the filter path uses a backslash: `terraform test '-filter=tests\core.tftest.hcl'`.
 
-- Pull requests: fmt, validate, `terraform test` with mock providers, and a dev plan in the job summary.
-- Pull requests that change `stacks/`, `modules/` or the shared CI actions also run the `deploy-test` job in `ci.yaml`. It runs `tests/deploy.tftest.hcl`: a real apply of a throwaway `test` environment (`rg-malus-test`, `10.43.0.0/16`), then `/healthz` and `/v1/questions` through the gateway must return 200, then everything is destroyed. It takes about 20–30 minutes and a few cents. Only one runs at a time, and leftovers from an interrupted run are deleted before the next one starts.
-- Pull requests also plan against prod's real state (`prod-safety` job, read-only, no lock). The job fails if the change would delete or replace a stateful resource: the SQL server or database, the Cosmos DB account, database or container, the storage account or its containers, or Key Vault. A fresh deploy succeeding doesn't prove that updating prod is safe; renaming the SQL server, for example, would recreate it and lose its data.
-- Merge to `main`: applies dev, then prod; prod waits for approval. After each apply, a smoke test calls `/healthz` and `/v1/questions` on that environment's gateway (retrying while the apps cold-start). A failed smoke test on dev stops the run before prod.
-- Nightly: dev is destroyed, and any leftover `rg-malus-test` is deleted. The cleanup shares the `deploy-test` concurrency group, so it waits for a running deployment test instead of deleting it.
 - New images: CI runs `az containerapp update --image ...`; Terraform ignores image and traffic-weight drift so the two don't fight. After a content rollout, run the migration job.
+
+## Pipelines
+
+| Workflow | Runs on | Jobs |
+|---|---|---|
+| `ci.yaml` | Pull requests | `check` (fmt, validate, mocked tests) → `plan-dev` and `prod-safety`; `deploy-test` when `stacks/`, `modules/`, `.github/actions/` or `ci.yaml` changed |
+| `deploy.yaml` | Push to `main`, manual | `check` → `dev` (apply + smoke test) → `prod` (approval, apply + smoke test) |
+| `nightly.yaml` | 16:00 UTC daily, manual | `destroy-dev`; `cleanup-test` deletes a leftover `rg-malus-test` |
+| `k8s.yaml` | Changes under `deploy/` | Helm lint, kubeconform, kind end-to-end test |
+
+Repeated steps live in composite actions under `.github/actions/`: `terraform-init`, `terraform-check`, `terraform-plan`, `smoke-test` and `remove-test-env`. Composite actions can't read secrets, so the workflows pass the Azure IDs in as inputs.
+
+- **`deploy-test`** runs `tests/deploy.tftest.hcl`: a real apply of a throwaway `test` environment (`rg-malus-test`, `10.43.0.0/16`), then `/healthz` and `/v1/questions` through the gateway must return 200, then everything is destroyed. It takes about 20–30 minutes and a few cents. Only one runs at a time, and leftovers from an interrupted run are deleted before the next one starts.
+- **`prod-safety`** plans against prod's real state (read-only, no lock) and fails if the change would delete or replace a stateful resource: the SQL server or database, the Cosmos DB account, database or container, the storage account or its containers, or Key Vault. A fresh deploy succeeding doesn't prove that updating prod is safe; renaming the SQL server, for example, would recreate it and lose its data.
+- **Smoke tests** after each apply in `deploy.yaml` call `/healthz` and `/v1/questions`, retrying while the apps cold-start. A failure on dev stops the run before prod.
+- **`cleanup-test`** shares the `deploy-test` concurrency group, so it waits for a running deployment test instead of deleting it.
 
 ## Presentation week
 
