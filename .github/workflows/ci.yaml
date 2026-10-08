@@ -92,8 +92,20 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - uses: ./.github/actions/terraform-init
-      - name: deployment test
+      - id: prod-platform
+        name: check that prod's container apps environment exists
+        run: |
+          if az resource show -g rg-malus-prod -n cae-malus-prod --resource-type Microsoft.App/managedEnvironments --only-show-errors > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::cae-malus-prod does not exist yet, so the deployment test is skipped. It runs inside prod's Container Apps environment; deploy prod first."
+            echo "### Deployment test skipped: prod's Container Apps environment \`cae-malus-prod\` does not exist yet" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - if: steps.prod-platform.outputs.exists == 'true'
+        uses: ./.github/actions/terraform-init
+      - if: steps.prod-platform.outputs.exists == 'true'
+        name: deployment test
         working-directory: stacks/core
         run: |
           set +e
