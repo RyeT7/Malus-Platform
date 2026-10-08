@@ -14,7 +14,7 @@ Terraform for the Malus presentation app on Azure for Students. The subscription
 
 ## Admin sign-in (`identity/`)
 
-The school tenant blocks app registrations, so sign-in uses a separate Entra tenant, `Malus` (`malusapp.onmicrosoft.com`, tenant ID `7e27ca5f-bfe1-4086-ae61-dc06d2a524e6`), created by hand in the portal. Azure resources stay in the school subscription; only tokens come from `Malus`.
+The school tenant blocks app registrations, so sign-in uses a separate Entra tenant, `malus` (`malusauth.onmicrosoft.com`, tenant ID `46a669c5-4e3e-4a49-9f12-efab7c00120d`), created by hand in the portal. Azure resources stay in the school subscription; only tokens come from `Malus`.
 
 `identity/` manages one single-tenant app registration in it:
 
@@ -27,7 +27,7 @@ GitHub Actions can't manage the `Malus` tenant (the CI identity lives in the sch
 
 ```powershell
 az login
-az login --tenant 7e27ca5f-bfe1-4086-ae61-dc06d2a524e6 --allow-no-subscriptions
+az login --tenant 46a669c5-4e3e-4a49-9f12-efab7c00120d --allow-no-subscriptions
 cd identity
 $env:ARM_SUBSCRIPTION_ID = az account show --query id -o tsv
 $env:TF_VAR_admin_emails = '["<other admin account>"]'
