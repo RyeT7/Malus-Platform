@@ -14,7 +14,7 @@ Terraform for the Malus presentation app on Azure for Students. The subscription
 
 ## Admin sign-in (`identity/`)
 
-The school tenant blocks app registrations, so sign-in uses a separate Entra tenant, `malus` (`malusauth.onmicrosoft.com`, tenant ID `46a669c5-4e3e-4a49-9f12-efab7c00120d`), created by hand in the portal. Azure resources stay in the school subscription; only tokens come from `Malus`.
+The school tenant blocks app registrations, so sign-in uses a separate Entra tenant, `Malus` (`malusauth.onmicrosoft.com`, tenant ID `46a669c5-4e3e-4a49-9f12-efab7c00120d`), created by hand in the portal. Azure resources stay in the school subscription; only tokens come from `Malus`.
 
 `identity/` manages one single-tenant app registration in it:
 
