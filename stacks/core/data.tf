@@ -122,9 +122,21 @@ resource "azurerm_cosmosdb_sql_container" "questions" {
   partition_key_version = 2
 }
 
+resource "azurerm_cosmosdb_sql_container" "sessions" {
+  name                  = "sessions"
+  resource_group_name   = azurerm_resource_group.core.name
+  account_name          = azurerm_cosmosdb_account.interaction.name
+  database_name         = azurerm_cosmosdb_sql_database.interaction.name
+  partition_key_paths   = ["/pk"]
+  partition_key_version = 2
+}
+
 locals {
   cosmos_data_contributors = merge(
-    { interaction = azurerm_user_assigned_identity.service["interaction"].principal_id },
+    {
+      interaction = azurerm_user_assigned_identity.service["interaction"].principal_id
+      realtime    = azurerm_user_assigned_identity.service["realtime"].principal_id
+    },
     { for i, id in var.developer_principal_ids : "developer-${i}" => id },
   )
 }

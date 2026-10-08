@@ -46,7 +46,7 @@ locals {
     }
     content = {
       SQL_DSN              = local.sql_dsn
-      BLOB_ENDPOINT        = azurerm_storage_account.blobs.primary_blob_endpoint
+      BLOB_ACCOUNT_URL     = azurerm_storage_account.blobs.primary_blob_endpoint
       SERVICEBUS_NAMESPACE = "${azurerm_servicebus_namespace.core.name}.servicebus.windows.net"
     }
     interaction = {
@@ -56,8 +56,11 @@ locals {
       SERVICEBUS_NAMESPACE       = "${azurerm_servicebus_namespace.core.name}.servicebus.windows.net"
     }
     realtime = {
-      WEBPUBSUB_ENDPOINT = "https://${azurerm_web_pubsub.realtime.hostname}"
-      WEBPUBSUB_HUB      = "presentation"
+      WEBPUBSUB_ENDPOINT        = "https://${azurerm_web_pubsub.realtime.hostname}"
+      WEBPUBSUB_HUB             = "presentation"
+      COSMOS_ENDPOINT           = azurerm_cosmosdb_account.interaction.endpoint
+      COSMOS_DATABASE           = azurerm_cosmosdb_sql_database.interaction.name
+      COSMOS_SESSIONS_CONTAINER = azurerm_cosmosdb_sql_container.sessions.name
     }
     worker = {
       BLOB_ENDPOINT        = azurerm_storage_account.blobs.primary_blob_endpoint

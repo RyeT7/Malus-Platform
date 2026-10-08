@@ -1,5 +1,13 @@
 name: terraform-apply
-description: Apply the saved tfplan in stacks/core, then smoke test the environment's gateway
+description: Apply the saved tfplan in stacks/core, run the content migration job, then smoke test the environment's gateway
+
+inputs:
+  client-id:
+    required: true
+  tenant-id:
+    required: true
+  subscription-id:
+    required: true
 
 runs:
   using: composite
@@ -12,7 +20,35 @@ runs:
     - id: out
       shell: bash
       working-directory: stacks/core
-      run: echo "gateway_url=$(terraform output -raw gateway_url)" >> "$GITHUB_OUTPUT"
+      run: |
+        echo "gateway_url=$(terraform output -raw gateway_url)" >> "$GITHUB_OUTPUT"
+        echo "resource_group=$(terraform output -raw resource_group)" >> "$GITHUB_OUTPUT"
+        echo "migration_job=$(terraform output -raw migration_job)" >> "$GITHUB_OUTPUT"
+
+    - uses: azure/login@v2
+      with:
+        client-id: ${{ inputs.client-id }}
+        tenant-id: ${{ inputs.tenant-id }}
+        subscription-id: ${{ inputs.subscription-id }}
+
+    - shell: bash
+      env:
+        RESOURCE_GROUP: ${{ steps.out.outputs.resource_group }}
+        JOB: ${{ steps.out.outputs.migration_job }}
+      run: |
+        execution=$(az containerapp job start -n "$JOB" -g "$RESOURCE_GROUP" --query name -o tsv)
+        for _ in $(seq 66); do
+          status=$(az containerapp job execution show -n "$JOB" -g "$RESOURCE_GROUP" \
+            --job-execution-name "$execution" --query properties.status -o tsv)
+          echo "$execution: $status"
+          case "$status" in
+            Succeeded) exit 0 ;;
+            Failed|Stopped|Degraded) exit 1 ;;
+          esac
+          sleep 10
+        done
+        echo "Migration did not finish in time"
+        exit 1
 
     - uses: ./.github/actions/smoke-test
       with:
