@@ -129,14 +129,3 @@ variable "developer_ip_ranges" {
   type        = list(string)
   default     = []
 }
-
-variable "showcase_enabled" {
-  description = "Deploy the AKS showcase layer. Set true for demos and presentation week, then back to false to destroy it."
-  type        = bool
-  default     = false
-}
-
-variable "aks_node_vm_size" {
-  type    = string
-  default = "Standard_B2s_v2"
-}
