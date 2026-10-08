@@ -53,11 +53,6 @@ run "core_defaults" {
   }
 
   assert {
-    condition     = length(module.aks_showcase) == 0
-    error_message = "The AKS showcase is off by default."
-  }
-
-  assert {
     condition     = local.service_env.gateway.AUTH_ISSUER == "https://login.microsoftonline.com/00000000-0000-0000-0000-00000000aaaa/v2.0"
     error_message = "Gateway issuer must point at the Entra tenant."
   }
@@ -111,19 +106,6 @@ run "shared_platform" {
   assert {
     condition     = local.container_app_environment_id == "/subscriptions/00000000-0000-0000-0000-00000000bbbb/resourceGroups/rg-malus-prod/providers/Microsoft.App/managedEnvironments/cae-malus-prod"
     error_message = "Apps must run in the shared Container Apps environment."
-  }
-}
-
-run "showcase_toggle" {
-  command = plan
-
-  variables {
-    showcase_enabled = true
-  }
-
-  assert {
-    condition     = length(module.aks_showcase) == 1
-    error_message = "showcase_enabled must deploy the AKS showcase."
   }
 }
 

@@ -113,6 +113,12 @@ variable "gateway_min_replicas" {
   default     = 0
 }
 
+variable "service_min_replicas" {
+  description = "Minimum replicas for content, interaction and realtime. 0 saves money at idle; set to 1 during presentation week so a request never waits for a cold start."
+  type        = number
+  default     = 0
+}
+
 variable "realtime_max_replicas" {
   type    = number
   default = 5
@@ -128,15 +134,4 @@ variable "developer_ip_ranges" {
   description = "Public IPs or CIDRs allowed through the Cosmos DB firewall."
   type        = list(string)
   default     = []
-}
-
-variable "showcase_enabled" {
-  description = "Deploy the AKS showcase layer. Set true for demos and presentation week, then back to false to destroy it."
-  type        = bool
-  default     = false
-}
-
-variable "aks_node_vm_size" {
-  type    = string
-  default = "Standard_B2s_v2"
 }

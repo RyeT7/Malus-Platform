@@ -65,21 +65,30 @@ resource "azurerm_container_app" "this" {
       }
 
       liveness_probe {
-        transport = "HTTP"
-        port      = var.port
-        path      = "/healthz"
+        transport        = "HTTP"
+        port             = var.port
+        path             = "/healthz"
+        interval_seconds = 10
+        timeout          = 3
       }
 
       readiness_probe {
-        transport = "HTTP"
-        port      = var.port
-        path      = "/readyz"
+        transport               = "HTTP"
+        port                    = var.port
+        path                    = "/readyz"
+        interval_seconds        = 2
+        timeout                 = 3
+        success_count_threshold = 1
+        failure_count_threshold = 3
       }
 
       startup_probe {
-        transport = "HTTP"
-        port      = var.port
-        path      = "/healthz"
+        transport               = "HTTP"
+        port                    = var.port
+        path                    = "/healthz"
+        interval_seconds        = 1
+        timeout                 = 3
+        failure_count_threshold = 30
       }
     }
 
