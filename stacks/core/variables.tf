@@ -113,6 +113,12 @@ variable "gateway_min_replicas" {
   default     = 0
 }
 
+variable "service_min_replicas" {
+  description = "Minimum replicas for content, interaction and realtime. 0 saves money at idle; set to 1 during presentation week so a request never waits for a cold start."
+  type        = number
+  default     = 0
+}
+
 variable "realtime_max_replicas" {
   type    = number
   default = 5
