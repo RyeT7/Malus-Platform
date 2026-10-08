@@ -123,7 +123,7 @@ terraform test -filter=tests/core.tftest.hcl
 
 Always pass `-filter`. A bare `terraform test` also runs `tests/deploy.tftest.hcl`, which deploys a real `test` environment to Azure. In PowerShell the filter path uses a backslash: `terraform test '-filter=tests\core.tftest.hcl'`.
 
-- New images: CI runs `az containerapp update --image ...`; Terraform ignores image and traffic-weight drift so the two don't fight. After a content rollout, run the migration job.
+- New images: CI runs `az containerapp update --image ...`; Terraform ignores image and traffic-weight drift so the two don't fight. Every prod apply runs the content migration job before the smoke test, so a fresh environment gets its tables; Malus-BE's deploy runs it again for each new content image.
 
 ## Pipelines
 
@@ -134,11 +134,11 @@ Always pass `-filter`. A bare `terraform test` also runs `tests/deploy.tftest.hc
 | `nightly.yaml` | 16:00 UTC daily, manual | `cleanup-test` deletes a leftover `rg-malus-test` |
 | `k8s.yaml` | Changes under `deploy/` | Helm lint, kubeconform, kind end-to-end test |
 
-Repeated steps live in composite actions under `.github/actions/`: `terraform-init`, `terraform-check`, `terraform-plan`, `terraform-apply` (apply + smoke test), `smoke-test` and `remove-test-env`. Composite actions can't read secrets, so the workflows pass the Azure IDs in as inputs.
+Repeated steps live in composite actions under `.github/actions/`: `terraform-init`, `terraform-check`, `terraform-plan`, `terraform-apply` (apply, migration job, smoke test), `smoke-test` and `remove-test-env`. Composite actions can't read secrets, so the workflows pass the Azure IDs in as inputs.
 
-- **`deploy-test`** runs `tests/deploy.tftest.hcl`: a real apply of a throwaway `test` environment (`rg-malus-test`, `10.43.0.0/16`), then `/healthz` and `/v1/questions` through the gateway must return 200, then everything is destroyed. It takes about 20–30 minutes and a few cents. Only one runs at a time, and leftovers from an interrupted run are deleted before the next one starts.
+- **`deploy-test`** runs `tests/deploy.tftest.hcl`: a real apply of a throwaway `test` environment (`rg-malus-test`, `10.43.0.0/16`), then `/healthz`, `/v1/questions` and `/v1/live/connection` through the gateway must return 200, then everything is destroyed. `/v1/presentation` isn't checked there because the test environment's database is never migrated. It takes about 20–30 minutes and a few cents. Only one runs at a time, and leftovers from an interrupted run are deleted before the next one starts.
 - **`prod-safety`** plans against prod's real state (read-only, no lock) and fails if the change would delete or replace a stateful resource: the SQL server or database, the Cosmos DB account, database or container, the storage account or its containers, or Key Vault. A fresh deploy succeeding doesn't prove that updating prod is safe; renaming the SQL server, for example, would recreate it and lose its data.
-- **Smoke tests** after every prod apply (`deploy.yaml`) call `/healthz` and `/v1/questions`, retrying while the apps cold-start.
+- **Smoke tests** after every prod apply (`deploy.yaml`) call `/healthz`, `/v1/presentation` (content and SQL), `/v1/questions` (interaction and Cosmos DB) and `/v1/live/connection` (realtime, Cosmos DB and Web PubSub), retrying while the apps cold-start.
 - **Dev is not in the merge path.** The pull request's `deploy-test` already proves a change deploys from scratch, so merges go straight to prod's approval. Two PRs that pass separately but break together would only be caught by prod's smoke test.
 - **`cleanup-test`** shares the `deploy-test` concurrency group, so it waits for a running deployment test instead of deleting it.
 
@@ -196,4 +196,4 @@ The `k8s` workflow lints the chart, validates the rendered manifests with kubeco
 - The content identity is also the SQL Entra admin, so the migration job can create tables without a manual `CREATE USER` step. Splitting runtime and migration identities needs a one-time T-SQL grant from inside the VNet.
 - Worker scaling stays at 0–1 replicas until it reads Service Bus; the KEDA `azure-servicebus` rule should be added then.
 - Not built yet: second region and Front Door for the failover drill, Flux/Argo CD on AKS, Infracost and Conftest in PR checks, drift detection.
-- The services don't read `BLOB_ENDPOINT`, `SERVICEBUS_NAMESPACE`, `WEBPUBSUB_ENDPOINT`/`WEBPUBSUB_HUB`, `KEY_VAULT_URI` or `APPLICATIONINSIGHTS_CONNECTION_STRING` yet; they are set now so the code can adopt them without an infra change.
+- The services don't read the worker's `BLOB_ENDPOINT`, `SERVICEBUS_NAMESPACE`, `KEY_VAULT_URI` or `APPLICATIONINSIGHTS_CONNECTION_STRING` yet; they are set now so the code can adopt them without an infra change. Content reads `BLOB_ACCOUNT_URL`, and realtime reads `WEBPUBSUB_ENDPOINT`/`WEBPUBSUB_HUB` and `COSMOS_ENDPOINT`/`COSMOS_DATABASE`/`COSMOS_SESSIONS_CONTAINER`; a setting name that doesn't match what the code reads makes that service fail at startup.

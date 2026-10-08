@@ -39,3 +39,18 @@ run "questions_through_gateway" {
     error_message = "GET /v1/questions did not return 200: gateway, interaction service or Cosmos DB access is broken."
   }
 }
+
+run "live_connection_through_gateway" {
+  module {
+    source = "./tests/modules/http_check"
+  }
+
+  variables {
+    url = "${run.deploy.gateway_url}/v1/live/connection"
+  }
+
+  assert {
+    condition     = output.status_code == 200
+    error_message = "GET /v1/live/connection did not return 200: gateway, realtime service, its Cosmos DB sessions container or Web PubSub access is broken."
+  }
+}
