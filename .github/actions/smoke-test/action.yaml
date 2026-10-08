@@ -14,7 +14,7 @@ runs:
       env:
         GATEWAY_URL: ${{ inputs.url }}
       run: |
-        for path in /healthz /v1/presentation /v1/questions; do
+        for path in /healthz /v1/presentation /v1/questions /v1/live/connection; do
           echo "GET $GATEWAY_URL$path"
           curl -fsS --retry 40 --retry-delay 10 --retry-all-errors --max-time 30 "$GATEWAY_URL$path" > /dev/null
         done
