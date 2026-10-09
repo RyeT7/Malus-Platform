@@ -9,3 +9,5 @@ cosmos_free_tier = true
 
 gateway_min_replicas = 2
 service_min_replicas = 2
+
+availability_test_enabled = true
