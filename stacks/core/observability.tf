@@ -19,3 +19,23 @@ resource "azurerm_application_insights" "core" {
   daily_data_cap_in_gb = var.log_daily_quota_gb
   tags                 = local.tags
 }
+
+resource "azapi_update_resource" "otel_agent" {
+  count = local.own_platform
+
+  type        = "Microsoft.App/managedEnvironments@2024-10-02-preview"
+  resource_id = azurerm_container_app_environment.core[0].id
+
+  body = {
+    properties = {
+      appInsightsConfiguration = {
+        connectionString = azurerm_application_insights.core.connection_string
+      }
+      openTelemetryConfiguration = {
+        tracesConfiguration = {
+          destinations = ["appInsights"]
+        }
+      }
+    }
+  }
+}
