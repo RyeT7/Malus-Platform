@@ -68,6 +68,12 @@ variable "log_daily_quota_gb" {
   default     = 0.15
 }
 
+variable "availability_test_enabled" {
+  description = "Checks the gateway's /healthz every 15 minutes from three regions. About $0.22 a day."
+  type        = bool
+  default     = false
+}
+
 variable "sql_auto_pause_minutes" {
   type    = number
   default = 60
