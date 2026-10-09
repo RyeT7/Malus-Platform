@@ -70,7 +70,7 @@ locals {
 
   app_settings = {
     gateway     = { ingress = { external = true }, min = var.gateway_min_replicas, max = 3 }
-    content     = { ingress = { external = false }, min = var.service_min_replicas, max = 2 }
+    content     = { ingress = { external = false }, min = var.service_min_replicas, max = 3 }
     interaction = { ingress = { external = false }, min = var.service_min_replicas, max = 3 }
     realtime    = { ingress = { external = false }, min = var.service_min_replicas, max = var.realtime_max_replicas }
     worker      = { ingress = null, min = 0, max = 1 }

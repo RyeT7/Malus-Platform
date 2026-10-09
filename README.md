@@ -145,10 +145,11 @@ In `env/prod.tfvars`:
 
 ```hcl
 webpubsub_sku        = "Standard_S1"
-gateway_min_replicas = 1
+gateway_min_replicas = 2
+service_min_replicas = 2
 ```
 
-Apply, rehearse, present, then revert those lines and apply again.
+Apply, rehearse, present, then revert those lines and apply again. Two replicas of each app cost about $0.19 a day per extra replica while idle, so set both back to 1 after the presentation.
 
 ## Known gaps
 
