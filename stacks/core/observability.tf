@@ -28,6 +28,7 @@ resource "azurerm_application_insights_standard_web_test" "gateway" {
   location                = azurerm_application_insights.core.location
   application_insights_id = azurerm_application_insights.core.id
   description             = "Gateway /healthz from three Asian regions."
+  enabled                 = true
   frequency               = 900
   timeout                 = 30
   retry_enabled           = true
