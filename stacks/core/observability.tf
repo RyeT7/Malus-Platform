@@ -28,12 +28,28 @@ resource "azapi_update_resource" "otel_agent" {
 
   body = {
     properties = {
+      appLogsConfiguration = {
+        destination = "log-analytics"
+        logAnalyticsConfiguration = {
+          customerId = azurerm_log_analytics_workspace.core[0].workspace_id
+        }
+      }
       appInsightsConfiguration = {
         connectionString = azurerm_application_insights.core.connection_string
       }
       openTelemetryConfiguration = {
         tracesConfiguration = {
           destinations = ["appInsights"]
+        }
+      }
+    }
+  }
+
+  sensitive_body = {
+    properties = {
+      appLogsConfiguration = {
+        logAnalyticsConfiguration = {
+          sharedKey = azurerm_log_analytics_workspace.core[0].primary_shared_key
         }
       }
     }
