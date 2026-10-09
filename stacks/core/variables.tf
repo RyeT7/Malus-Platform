@@ -108,13 +108,13 @@ variable "webpubsub_sku" {
 }
 
 variable "gateway_min_replicas" {
-  description = "0 saves money at idle; set to 1 during presentation week to avoid cold starts."
+  description = "0 saves money at idle; 1 avoids cold starts; 2 keeps serving when one replica fails."
   type        = number
   default     = 0
 }
 
 variable "service_min_replicas" {
-  description = "Minimum replicas for content, interaction and realtime. 0 saves money at idle; set to 1 during presentation week so a request never waits for a cold start."
+  description = "Minimum replicas for content, interaction and realtime. 0 saves money at idle; 1 means a request never waits for a cold start; 2 keeps serving when one replica fails."
   type        = number
   default     = 0
 }

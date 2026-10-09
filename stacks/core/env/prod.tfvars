@@ -7,5 +7,5 @@ auth_tenant_id   = "46a669c5-4e3e-4a49-9f12-efab7c00120d"
 auth_audience    = "aa4a4fa4-20c2-4301-9105-e131df1fc7a7"
 cosmos_free_tier = true
 
-gateway_min_replicas = 1
-service_min_replicas = 1
+gateway_min_replicas = 2
+service_min_replicas = 2
